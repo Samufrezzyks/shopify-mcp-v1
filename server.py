@@ -929,7 +929,101 @@ async def shopify_create_webhook(params: CreateWebhookInput) -> str:
     except Exception as e:
         return _error(e)
 
+# ═══════════════════════════════════════════════════════════════════════════
+# BLOGS & ARTICLES
+# ═══════════════════════════════════════════════════════════════════════════
 
+class ListBlogsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    limit: Optional[int] = Field(default=50, ge=1, le=250)
+
+@mcp.tool(
+    name="shopify_list_blogs",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_list_blogs(params: ListBlogsInput) -> str:
+    """List all blogs in the Shopify store."""
+    try:
+        p = {"limit": params.limit}
+        data = await _request("GET", "blogs.json", params=p)
+        blogs = data.get("blogs", [])
+        return _fmt({"count": len(blogs), "blogs": blogs})
+    except Exception as e:
+        return _error(e)
+
+
+class ListArticlesInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    blog_id:        Optional[int] = Field(default=None, description="Filter by blog ID")
+    limit:          Optional[int] = Field(default=50, ge=1, le=250)
+    published_status: Optional[str] = Field(default="any", description="published, unpublished, any")
+    fields:         Optional[str] = Field(default=None, description="Comma-separated fields to include")
+
+@mcp.tool(
+    name="shopify_list_articles",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_list_articles(params: ListArticlesInput) -> str:
+    """List blog articles, optionally filtered by blog."""
+    try:
+        if params.blog_id:
+            endpoint = f"blogs/{params.blog_id}/articles.json"
+        else:
+            endpoint = "articles.json"
+        p: Dict[str, Any] = {"limit": params.limit, "published_status": params.published_status}
+        if params.fields:
+            p["fields"] = params.fields
+        data = await _request("GET", endpoint, params=p)
+        articles = data.get("articles", [])
+        return _fmt({"count": len(articles), "articles": articles})
+    except Exception as e:
+        return _error(e)
+
+
+class GetArticleInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    blog_id:    int = Field(..., description="Blog ID")
+    article_id: int = Field(..., description="Article ID")
+
+@mcp.tool(
+    name="shopify_get_article",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_get_article(params: GetArticleInput) -> str:
+    """Get a single blog article by ID."""
+    try:
+        data = await _request("GET", f"blogs/{params.blog_id}/articles/{params.article_id}.json")
+        return _fmt(data.get("article", data))
+    except Exception as e:
+        return _error(e)
+
+
+class UpdateArticleInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    blog_id:          int            = Field(..., description="Blog ID")
+    article_id:       int            = Field(..., description="Article ID")
+    title:            Optional[str]  = Field(default=None)
+    body_html:        Optional[str]  = Field(default=None, description="Article body in HTML")
+    tags:             Optional[str]  = Field(default=None)
+    published:        Optional[bool] = Field(default=None)
+    metafields:       Optional[List[Dict[str, Any]]] = Field(default=None)
+
+@mcp.tool(
+    name="shopify_update_article",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_update_article(params: UpdateArticleInput) -> str:
+    """Update a blog article. Only provided fields are changed."""
+    try:
+        article: Dict[str, Any] = {}
+        for field in ["title", "body_html", "tags", "published", "metafields"]:
+            val = getattr(params, field)
+            if val is not None:
+                article[field] = val
+        data = await _request("PUT", f"blogs/{params.blog_id}/articles/{params.article_id}.json", body={"article": article})
+        return _fmt(data.get("article", data))
+    except Exception as e:
+        return _error(e)
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------

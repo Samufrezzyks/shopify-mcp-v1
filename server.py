@@ -932,6 +932,34 @@ async def shopify_create_webhook(params: CreateWebhookInput) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # BLOGS & ARTICLES
 # ═══════════════════════════════════════════════════════════════════════════
+class CreateArticleInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    blog_id:    int            = Field(..., description="Blog ID where the article will be created")
+    title:      str            = Field(..., min_length=1, description="Article title")
+    body_html:  Optional[str]  = Field(default=None, description="Article body in HTML")
+    tags:       Optional[str]  = Field(default=None)
+    published:  Optional[bool] = Field(default=False)
+    author:     Optional[str]  = Field(default=None)
+    metafields: Optional[List[Dict[str, Any]]] = Field(default=None)
+
+@mcp.tool(
+    name="shopify_create_article",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)
+async def shopify_create_article(params: CreateArticleInput) -> str:
+    """Create a new blog article."""
+    try:
+        article: Dict[str, Any] = {"title": params.title}
+        for field in ["body_html", "tags", "published", "author", "metafields"]:
+            val = getattr(params, field)
+            if val is not None:
+                article[field] = val
+        data = await _request("POST", f"blogs/{params.blog_id}/articles.json", body={"article": article})
+        return _fmt(data.get("article", data))
+    except Exception as e:
+        return _error(e)
+
+
 
 class ListBlogsInput(BaseModel):
     model_config = ConfigDict(extra="forbid")

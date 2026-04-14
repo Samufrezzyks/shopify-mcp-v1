@@ -1076,24 +1076,6 @@ async def shopify_list_redirects(params: ListRedirectsInput) -> str:
     except Exception as e:
         return _error(e)
 
-class CreateRedirectInput(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-    path:   str = Field(..., description="Source URL path to redirect FROM, e.g. /producto/pack-degustacion/")
-    target: str = Field(..., description="Destination URL path to redirect TO, e.g. /products/pack-degustacion")
-
-
-@mcp.tool(
-    name="shopify_create_redirect",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
-)
-async def shopify_create_redirect(params: CreateRedirectInput) -> str:
-    """Create a URL redirect in the Shopify store."""
-    try:
-        body = {"redirect": {"path": params.path, "target": params.target}}
-        data = await _request("POST", "redirects.json", body=body)
-        return _fmt(data.get("redirect", data))
-    except Exception as e:
-        return _error(e)
       
 # ---------------------------------------------------------------------------
 # Entrypoint

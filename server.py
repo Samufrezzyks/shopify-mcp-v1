@@ -929,9 +929,11 @@ async def shopify_create_webhook(params: CreateWebhookInput) -> str:
     except Exception as e:
         return _error(e)
 
+
 # ═══════════════════════════════════════════════════════════════════════════
 # BLOGS & ARTICLES
 # ═══════════════════════════════════════════════════════════════════════════
+
 class CreateArticleInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     blog_id:    int            = Field(..., description="Blog ID where the article will be created")
@@ -958,7 +960,6 @@ async def shopify_create_article(params: CreateArticleInput) -> str:
         return _fmt(data.get("article", data))
     except Exception as e:
         return _error(e)
-
 
 
 class ListBlogsInput(BaseModel):
@@ -1052,6 +1053,70 @@ async def shopify_update_article(params: UpdateArticleInput) -> str:
         return _fmt(data.get("article", data))
     except Exception as e:
         return _error(e)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# URL REDIRECTS  ← NUEVO
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CreateRedirectInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    path:   str = Field(..., description="Source URL path to redirect FROM, e.g. /producto/pack-degustacion/")
+    target: str = Field(..., description="Destination URL path to redirect TO, e.g. /products/pack-degustacion")
+
+
+@mcp.tool(
+    name="shopify_create_redirect",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)
+async def shopify_create_redirect(params: CreateRedirectInput) -> str:
+    """Create a URL redirect in the Shopify store."""
+    try:
+        body = {"redirect": {"path": params.path, "target": params.target}}
+        data = await _request("POST", "redirects.json", body=body)
+        return _fmt(data.get("redirect", data))
+    except Exception as e:
+        return _error(e)
+
+
+class ListRedirectsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    limit: Optional[int] = Field(default=250, ge=1, le=250, description="Max redirects to return (1-250)")
+
+
+@mcp.tool(
+    name="shopify_list_redirects",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_list_redirects(params: ListRedirectsInput) -> str:
+    """List all URL redirects in the Shopify store."""
+    try:
+        p    = {"limit": params.limit}
+        data = await _request("GET", "redirects.json", params=p)
+        redirects = data.get("redirects", [])
+        return _fmt({"count": len(redirects), "redirects": redirects})
+    except Exception as e:
+        return _error(e)
+
+
+class DeleteRedirectInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    redirect_id: int = Field(..., description="ID of the redirect to delete")
+
+
+@mcp.tool(
+    name="shopify_delete_redirect",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_delete_redirect(params: DeleteRedirectInput) -> str:
+    """Delete a URL redirect by ID."""
+    try:
+        await _request("DELETE", f"redirects/{params.redirect_id}.json")
+        return f"Redirect {params.redirect_id} deleted successfully."
+    except Exception as e:
+        return _error(e)
+
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------

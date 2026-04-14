@@ -1076,7 +1076,45 @@ async def shopify_list_redirects(params: ListRedirectsInput) -> str:
     except Exception as e:
         return _error(e)
 
-      
+
+class CreateRedirectInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    path:   str = Field(..., min_length=1, description="The old URL path to redirect from, e.g. /producto/pack-degustacion/")
+    target: str = Field(..., min_length=1, description="The new URL to redirect to, e.g. /products/pack-degustacion")
+
+
+@mcp.tool(
+    name="shopify_create_redirect",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+)
+async def shopify_create_redirect(params: CreateRedirectInput) -> str:
+    """Create a URL redirect in the Shopify store."""
+    try:
+        body = {"redirect": {"path": params.path, "target": params.target}}
+        data = await _request("POST", "redirects.json", body=body)
+        return _fmt(data.get("redirect", data))
+    except Exception as e:
+        return _error(e)
+
+
+class DeleteRedirectInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    redirect_id: int = Field(..., description="The ID of the redirect to delete")
+
+
+@mcp.tool(
+    name="shopify_delete_redirect",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
+)
+async def shopify_delete_redirect(params: DeleteRedirectInput) -> str:
+    """Delete a URL redirect by ID."""
+    try:
+        await _request("DELETE", f"redirects/{params.redirect_id}.json")
+        return f"Redirect {params.redirect_id} deleted."
+    except Exception as e:
+        return _error(e)
+
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
